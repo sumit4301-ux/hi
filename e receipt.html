@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Blaster Multi-Page Enterprise E-Receipt System</title>
+    <!-- SheetJS for native Excel parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #1e40af;
+            --bg-color: #f8fafc;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e2e8f0;
+            --card-bg: #ffffff;
+            --gray-light: #f1f5f9;
+            --danger: #dc2626;
+            --success: #059669;
+            --warning: #d97706;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        html, body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+        /* Login Screen */
+        #login-overlay { position: fixed; inset: 0; background: #e2e8f0; display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+        .login-card { background: white; padding: 32px; border-radius: 16px; border: 1px solid var(--border-color); width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        /* Undo Recovery Banner */
+        #undo-banner { position: fixed; top: 0; left: 0; right: 0; background: #fef3c7; border-bottom: 2px solid #f59e0b; color: #b45309; padding: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* Navigation Header */
+        header { background: #ffffff; border-bottom: 2px solid var(--primary); padding: 0.8rem 1.5rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand-logo { height: 40px; width: 40px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-color); display: none; background: #fff; padding: 2px; }
+        .brand-icon { background: var(--primary); color: white; padding: 8px 10px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; }
+        .brand h1 { font-size: 1rem; color: var(--primary); font-weight: 800; text-transform: uppercase; line-height: 1.2; }
+        .brand p { font-size: 0.68rem; color: var(--text-muted); }
+        /* Multi-Page Tabs Bar */
+        .nav-tabs { background: #1e293b; padding: 0 1.5rem; display: flex; gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        .nav-tab { color: #cbd5e1; background: transparent; border: none; padding: 10px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid transparent; }
+        .nav-tab:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-tab.active { color: white; border-bottom: 3px solid #38bdf8; background: rgba(255,255,255,0.08); }
+        main { max-width: 1440px; width: 100%; margin: 0 auto; padding: 16px; flex: 1; }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); margin-bottom: 16px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.95rem; color: var(--primary); flex-wrap: wrap; gap: 8px; }
+        .form-group { margin-bottom: 10px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        label { display: block; font-size: 0.73rem; font-weight: 600; color: #374151; margin-bottom: 3px; }
+        input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none; background: #fff; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 9px 14px; font-size: 0.82rem; font-weight: 600; transition: background 0.2s; }
+        .btn-primary { background-color: var(--primary); color: white; width: 100%; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: #f3f4f6; color: #374151; border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background-color: #e5e7eb; }
+        .btn-danger { background-color: #fee2e2; color: var(--danger); }
+        .btn-danger:hover { background-color: #fecaca; }
+        .btn-warning { background-color: #fef3c7; color: var(--warning); }
+        .btn-warning:hover { background-color: #fde68a; }
+        .fee-item-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: white; border: 1px solid var(--border-color); padding: 14px; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .stat-card h3 { font-size: 1.25rem; font-weight: bold; margin-top: 4px; }
+        .stat-card p { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+        .filter-panel { background: var(--gray-light); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+        .table-container { overflow-x: auto; max-height: 450px; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; min-width: 600px; }
+        th { background-color: var(--gray-light); color: #4b5563; font-weight: 700; padding: 8px; border-bottom: 1px solid var(--border-color); font-size: 0.7rem; text-transform: uppercase; position: sticky; top: 0; z-index: 10; }
+        td { padding: 8px; border-bottom: 1px solid var(--border-color); color: #374151; }
+        tr:hover { background-color: var(--gray-light); }
+        .cancelled-row { background-color: #fef2f2 !important; text-decoration: line-through; color: #9ca3af; }
+        /* Printable Receipt Layout */
+        .printable-receipt {
+            position: relative; border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; background: white; max-width: 700px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;
+        }
+        .receipt-watermark-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240px; height: auto; opacity: 0.08; pointer-events: none; z-index: 1; display: none; }
+        .receipt-watermark-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 3rem; font-weight: 900; color: rgba(30, 58, 138, 0.06); white-space: nowrap; pointer-events: none; z-index: 1; text-transform: uppercase; }
+        .receipt-content { position: relative; z-index: 2; }
+        .inst-header { text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .inst-logo-img { height: 50px; width: 50px; object-fit: contain; display: none; }
+        .inst-header-text h2 { font-size: 1.1rem; font-weight: bold; color: var(--primary); text-transform: uppercase; }
+        .inst-header-text p { font-size: 0.68rem; color: var(--text-muted); line-height: 1.2; }
+        .company-logo-img { height: 30px; width: auto; object-fit: contain; display: none; margin-left: auto; }
+        footer { text-align: center; padding: 14px; font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid var(--border-color); margin-top: auto; background: #fff; }
+        @media (max-width: 768px) {
+            header { padding: 0.6rem 1rem; }
+            .brand h1 { font-size: 0.9rem; }
+            .brand p { display: none; }
+            main { padding: 10px; }
+            .form-row, .form-row-3 { grid-template-columns: 1fr; gap: 8px; }
+            .fee-item-row { grid-template-columns: 1fr; gap: 4px; background: var(--gray-light); padding: 8px; border-radius: 6px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        }
+        /* Full Untruncated Print CSS */
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            html, body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; position: static !important; }
+            header, nav, footer, .no-print, .filter-panel, button, input[type="file"], #undo-banner { display: none !important; }
+            main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; height: auto !important; overflow: visible !important; position: static !important; }
+            .card { border: none !important; box-shadow: none !important; padding: 0 !important; margin-bottom: 0 !important; background: transparent !important; height: auto !important; overflow: visible !important; }
+            .page-section { display: block !important; height: auto !important; overflow: visible !important; position: static !important; }
+            .page-section:not(.active) { display: none !important; }
+            .table-container { max-height: none !important; height: auto !important; overflow: visible !important; display: block !important; position: static !important; }
+            table { font-size: 0.75rem; width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; page-break-inside: auto !important; }
+            tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+            thead { display: table-header-group !important; }
+            th, td { border-bottom: 1px solid #ccc !important; padding: 6px !important; }
+            .printable-receipt { border: 1px solid #ccc; max-width: 100%; box-shadow: none; page-break-inside: avoid; }
+        }
+    
+        /* ===== v2 visual upgrade (same blue theme) ===== */
+        body{background:linear-gradient(180deg,#e8eeff 0,#f8fafc 260px)}
+        header{background:linear-gradient(90deg,#fff,#eef3ff);border-bottom:3px solid var(--primary)}
+        .brand-icon{background:linear-gradient(135deg,#1e3a8a,#3b5bdb);box-shadow:0 4px 10px rgba(30,58,138,.3)}
+        .nav-tabs{background:linear-gradient(90deg,#0f172a,#1e293b);padding-top:6px}
+        .nav-tab{border-radius:8px 8px 0 0}
+        .card{border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+        .card-header{border-bottom:2px solid #dbe4ff}
+        .stat-card{border-left:4px solid var(--primary);transition:transform .15s,box-shadow .15s}
+        .stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(30,58,138,.12)}
+        button{transition:all .15s}
+        .btn-primary{background:linear-gradient(135deg,#1e3a8a,#2f4fc4);box-shadow:0 3px 8px rgba(30,58,138,.25)}
+        .btn-primary:hover{background:linear-gradient(135deg,#1e40af,#3b5bdb);transform:translateY(-1px)}
+        .btn-primary:disabled,.btn-secondary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+        th{background:#e8edff;color:#1e3a8a}
+        tbody tr:nth-child(even){background:#f8faff}
+        tbody tr:hover{background:#eaf0ff}
+        #login-overlay{background:radial-gradient(circle at 20% 15%,#3b5bdb 0,#1e3a8a 45%,#0f172a 100%)}
+        .login-card{border-radius:20px;border-top:5px solid #38bdf8;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+        .panel{background:linear-gradient(135deg,#f5f8ff,#fff);border:1px solid #dbe4ff;border-radius:12px;padding:14px;margin-bottom:14px}
+        .panel h4{color:var(--primary);font-size:.88rem;margin-bottom:4px}
+        .panel .note{font-size:.7rem;color:var(--text-muted);margin-top:8px}
+        .sim-badge{background:#fef3c7;color:#b45309;border:1px solid #f59e0b;border-radius:20px;font-size:.6rem;font-weight:800;padding:2px 8px}
+        .bk-log{background:#0f172a;color:#7dd3fc;font:12px/1.6 ui-monospace,Consolas,monospace;border-radius:10px;padding:12px;margin-top:10px;max-height:200px;overflow:auto;white-space:pre-wrap;border-left:4px solid #38bdf8}
+        .sh-head{background:linear-gradient(90deg,#1e3a8a,#3b5bdb);color:#fff;border-radius:10px;padding:10px 14px;margin:12px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+        .sh-head span{font-size:.75rem;opacity:.9}
+        .otp-overlay{position:fixed;inset:0;background:rgba(15,23,42,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1100;padding:16px}
+        .otp-overlay.show{display:flex}
+        .otp-card{background:#fff;border-radius:20px;padding:26px;width:100%;max-width:370px;text-align:center;border-top:5px solid #38bdf8;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+        .otp-card input,.otp-card button{margin-top:10px}
+        .otp-icon{font-size:2.2rem}.otp-card h3{color:var(--primary);margin-top:4px}.otp-card p{font-size:.78rem;color:var(--text-muted);margin-top:4px}
+        .otp-input{text-align:center;font-size:1.6rem;letter-spacing:10px;font-weight:800;color:var(--primary)}
+        #otp-s1,#otp-s2,#otp-s3{display:none}
+        #otp-info{font-size:.75rem;color:var(--text-muted);margin-top:8px}#otp-err{font-size:.76rem;color:var(--danger);font-weight:600;min-height:1em;margin-top:4px}
+        .otp-cancel{background:none;color:var(--text-muted);text-decoration:underline;width:100%}
+        #sms-toast{position:fixed;top:14px;right:14px;max-width:310px;background:#0f172a;color:#e2e8f0;border-left:5px solid #38bdf8;border-radius:12px;padding:12px 14px;font-size:.78rem;z-index:1200;display:none;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+        #sms-toast.show{display:block}.sms-code{background:#38bdf8;color:#0f172a;font-weight:800;letter-spacing:3px;padding:1px 8px;border-radius:6px}
+        #sms-toast small{display:block;color:#94a3b8;margin-top:6px;font-size:.64rem}
+        #print-batch{display:none}.pb-rcpt{border:1px solid #94a3b8;border-radius:6px;padding:10px;margin-bottom:7mm;break-inside:avoid;page-break-inside:avoid}
+        @media print{.otp-overlay,#sms-toast{display:none!important}body.pb main{display:none!important}body.pb #print-batch{display:block!important}}
+            .printable-receipt{border:3px double #1e3a8a;border-radius:14px;padding:22px;box-shadow:0 10px 30px rgba(30,58,138,.15)}
+        .printable-receipt .inst-header{background:linear-gradient(90deg,#eef3ff,#fff,#eef3ff);border:1px solid #dbe4ff;border-bottom:3px solid #1e3a8a;border-radius:10px;padding:10px}
+        .rv-title{text-align:center;font-weight:800;letter-spacing:2px;font-size:.85rem;color:#fff;background:linear-gradient(90deg,#1e3a8a,#3b5bdb);border-radius:20px;padding:5px;margin:4px auto 10px;max-width:80%}
+        #printable-view-area thead th{background:#1e3a8a!important;color:#fff!important}
+        #printable-view-area tbody tr:nth-child(even){background:#f5f8ff}
+        #printable-view-area #modal-amount{font-size:1.2rem}
+        .rv-words{font-size:.72rem;font-style:italic;color:#475569;margin-top:4px;text-align:right}
+        .rv-stamp{display:none;position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:3.2rem;font-weight:900;color:rgba(220,38,38,.28);border:6px solid rgba(220,38,38,.28);padding:4px 24px;border-radius:12px;z-index:3;pointer-events:none}
+        .pb-rcpt{border:2px solid #1e3a8a;border-radius:10px}
+        @media print{.printable-receipt,.pb-rcpt,.rv-title,#printable-view-area thead th,.rv-stamp,.pb-rcpt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+            #m-college-web{display:none}
+        .rv-foot{text-align:center;border-top:1px dashed #94a3b8;margin-top:12px;padding-top:6px;font-size:.78rem;color:#334155}
+        .pb-page{height:296mm;padding:10mm;box-sizing:border-box;display:flex;flex-direction:column;gap:8mm;page-break-after:always;overflow:hidden}
+        .pb-page:last-child{page-break-after:auto}.pb-page .pb-rcpt{margin-bottom:0}
+        @media print{body.rv main{padding:10mm!important}}
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-overlay">
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 16px;">
+                <div style="font-size: 2.2rem; margin-bottom: 4px;">🏛️</div>
+                <h2 id="login-college-name" style="font-size: 1.1rem; font-weight: bold; color: var(--primary);">Portal Login</h2>
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Administrative Access Gateway</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="login-user" required placeholder="User ID">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-pass" required placeholder="Password">
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 8px;">Login to Portal</button>
+            </form>
+            <p style="text-align:center;margin-top:12px;font-size:0.75rem"><a href="#" onclick="otpOpen('recover');return false" style="color:var(--primary);font-weight:700;text-decoration:none">🔑 Forgot password? Reset via OTP</a></p>
+            <p id="def-hint" style="text-align: center; font-size: 0.68rem; color: var(--text-muted); margin-top: 10px;">Default Login: <strong id="def-user-display">admin</strong> / <strong id="def-pass-display">admin123</strong></p>
+        </div>
+    </div>
+    <div id="sms-toast"></div>
+    <div id="otp-modal" class="otp-overlay"><div class="otp-card">
+        <div class="otp-icon">📱</div><h3 id="otp-title"></h3><p id="otp-sub"></p>
+        <div id="otp-s1"><input id="otp-mobile" inputmode="numeric" maxlength="14" placeholder="Registered mobile (10 digits)"><button class="btn-primary" onclick="otpStart()">Send OTP</button></div>
+        <div id="otp-s2"><input id="otp-code" class="otp-input" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="one-time-code"><div id="otp-info"></div><div id="otp-err"></div><button class="btn-primary" onclick="otpVerify()">Verify OTP</button><button id="otp-resend" class="btn-secondary" style="width:100%" onclick="otpSend()">Resend OTP</button></div>
+        <div id="otp-s3"><input id="otp-nu" placeholder="New User ID"><input id="otp-np" type="password" placeholder="New Password (min 6 characters)"><button class="btn-primary" onclick="otpFinish()">Save New Credentials</button></div>
+        <button class="otp-cancel" onclick="otpClose()">Cancel</button>
+    </div></div>
+    <div id="print-batch"></div>
+    <!-- Undo Recovery Banner -->
+    <div id="undo-banner">
+        <span>🗑️ All data was cleared.</span>
+        <button onclick="undoMasterReset()" class="btn-warning" style="padding: 4px 10px; font-size: 0.75rem; margin-left: 10px;">↩️ Undo & Restore Data</button>
+    </div>
+    <!-- Header Navigation -->
+    <header>
+        <div class="brand">
+            <img id="header-logo" class="brand-logo" src="" alt="Logo">
+            <div id="header-fallback-icon" class="brand-icon">🎓</div>
+            <div>
+                <h1 id="header-college-name">Gandhi Institute of Science and Technology</h1>
+                <p id="header-college-sub">Rayagada, Odisha | Enterprise Portal</p>
+            </div>
+        </div>
+        <div>
+            <button onclick="logout()" class="btn-danger" style="font-size: 0.72rem; padding: 5px 10px;">Logout</button>
+        </div>
+    </header>
+    <!-- Multi-Page Tab Navigation Bar -->
+    <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="switchPage('dashboard')">📊 Dashboard</button>
+        <button class="nav-tab" onclick="switchPage('issue')">📝 Issue Receipt</button>
+        <button class="nav-tab" onclick="switchPage('records')">🔍 Search & Records</button>
+        <button class="nav-tab" onclick="switchPage('books')">📚 Receipt Books</button>
+        <button class="nav-tab" onclick="switchPage('students')">👥 Students DB</button>
+        <button class="nav-tab" onclick="switchPage('dropdowns')">⚙️ Dropdown Manager</button>
+        <button class="nav-tab" onclick="switchPage('settings')">🏛️ College Settings</button>
+        <button class="nav-tab" onclick="switchPage('backup')">💾 Backup & Restore</button>
+        <button class="nav-tab" onclick="switchPage('security')">🔐 Security</button>
+    </nav>
+    <main>
+        <!-- PAGE 1: DASHBOARD & AUDIT REPORTS -->
+        <section id="page-dashboard" class="page-section active">
+            <div class="card">
+                <div class="card-header">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span>System Dashboard & Daily Reports</span>
+                        <!-- Master Reset Button -->
+                        <button onclick="triggerMasterReset()" title="Master Reset: Clear All Data" class="btn-danger no-print" style="padding:4px 8px; font-size:0.7rem; border-radius:4px;">🗑️ Master Reset</button>
+                    </div>
+                    <div style="display: flex; gap: 6px;" class="no-print">
+                        <button onclick="window.print()" class="btn-secondary" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <p>Total Issued</p>
+                        <h3 id="stat-issued">0</h3>
+                    </div>
+                    <div class="stat-card">
+                        <p>Total Collection</p>
+                        <h3 id="stat-collection" style="color: var(--success);">₹0.00</h3>
+                    </div>
+                    <div class="stat-card">
+                        <p>Today Collection</p>
+                        <h3 id="stat-today" style="color: var(--primary);">₹0.00</h3>
+                    </div>
+                    <div class="stat-card">
+                        <p>Cancelled</p>
+                        <h3 id="stat-cancelled" style="color: var(--danger);">0</h3>
+                    </div>
+                    <div class="stat-card">
+                        <p>Receipt Books</p>
+                        <h3 id="stat-books">0</h3>
+                    </div>
+                    <div class="stat-card">
+                        <p>Students DB</p>
+                        <h3 id="stat-students">0</h3>
+                    </div>
+                </div>
+                <!-- Audit Reports Generator -->
+                <div style="background: var(--gray-light); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+                    <h4 style="font-size: 0.82rem; font-weight: bold; color: var(--primary); margin-bottom: 8px;">Audit & Collection Reports Generator</h4>
+                    <div class="filter-panel no-print" style="margin-bottom: 8px; background: white;">
+                        <div>
+                            <label>Frequency</label>
+                            <select id="rpt-freq" onchange="toggleAuditFrequencyControls()">
+                                <option value="today">Today's Daily Report</option>
+                                <option value="date">Specific Date Report</option>
+                                <option value="month">Monthly Report</option>
+                            </select>
+                        </div>
+                        <div id="rpt-date-box" style="display:none;">
+                            <label>Select Date</label>
+                            <input type="date" id="rpt-target-date">
+                        </div>
+                        <div id="rpt-month-box" style="display:none;">
+                            <label>Select Month</label>
+                            <input type="month" id="rpt-target-month">
+                        </div>
+                        <div style="display:flex; align-items:flex-end;">
+                            <button onclick="generateAuditReport()" class="btn-primary" style="padding: 8px 12px;">Generate</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; flex-wrap: wrap; gap: 6px;">
+                        <div>Period: <strong id="rpt-sum-period">Today</strong> | Transactions: <strong id="rpt-sum-count">0</strong> | Total: <strong id="rpt-sum-amount" style="color: var(--success);">₹0.00</strong></div>
+                        <div class="no-print" style="display:flex; gap:6px;">
+                            <button onclick="exportAuditReportExcel()" class="btn-secondary" style="font-size: 0.7rem; padding: 4px 8px;">📊 Excel</button>
+                            <button onclick="window.print()" class="btn-primary" style="font-size: 0.7rem; padding: 4px 8px;">🖨️ Print</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Book / Serial</th>
+                                <th>Date</th>
+                                <th>Student Name</th>
+                                <th>Roll No</th>
+                                <th>Course & Branch</th>
+                                <th>Fee Heads & Amounts</th>
+                                <th>Total Paid</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-report-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 2: ISSUE RECEIPT -->
+        <section id="page-issue" class="page-section">
+            <div class="card" style="max-width: 850px; margin: 0 auto;">
+                <div class="card-header">
+                    <span id="form-title">Issue New Fee Receipt</span>
+                    <button onclick="resetForm()" class="no-print" style="background:none; color:var(--primary); font-size:0.72rem; text-decoration:underline; padding:0;">Reset Form</button>
+                </div>
+                <form id="receipt-form" onsubmit="handleReceiptSubmit(event)">
+                    <input type="hidden" id="edit-index" value="">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Receipt Book Number</label>
+                            <select id="book-no-select" required onchange="autoUpdateSerial(this.value); checkDuplicateSerial();"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Serial Number (1 to 1000)</label>
+                            <input type="number" id="serial-no" required min="1" max="1000" placeholder="001" oninput="checkDuplicateSerial()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Issue Date</label>
+                            <input type="date" id="receipt-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Mode</label>
+                            <select id="payment-mode">
+                                <option value="UPI / Online">UPI / Online</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Demand Draft">Demand Draft</option>
+                                <option value="Credit / Debit Card">Credit / Debit Card</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Course</label>
+                            <select id="course" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Branch / Department</label>
+                            <select id="branch" required></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Roll / ID Number (Auto-Fills Name)</label>
+                            <input type="text" id="roll-no" required placeholder="Type Roll No" oninput="autoFillStudent(this.value)" list="dl-rolls">
+                            <datalist id="dl-rolls"></datalist>
+                        </div>
+                        <div class="form-group">
+                            <label>Student Full Name</label>
+                            <input type="text" id="student-name" required placeholder="Auto-populated or type name">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Transaction Reference / UTR / DD No.</label>
+                        <input type="text" id="reference-no" placeholder="Optional transaction reference UTR">
+                    </div>
+                    <div class="form-group" style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="margin:0;">Fee Heads, Semester & Amount</label>
+                            <button type="button" onclick="addFeeRow()" class="btn-secondary no-print" style="font-size: 0.7rem; padding: 3px 8px;">+ Add Item</button>
+                        </div>
+                        <div id="fee-items-container"></div>
+                    </div>
+                    <button type="submit" id="form-submit-btn" class="btn-primary no-print" style="margin-top: 12px;">Save & View Receipt Voucher</button>
+                </form>
+            </div>
+        </section>
+        <!-- PAGE 3: SEARCH & RECORDS -->
+        <section id="page-records" class="page-section">
+            <div class="card">
+                <div class="card-header">
+                    <span>Advanced Search & Detailed Records Ledger</span>
+                    <div style="display: flex; gap: 6px;" class="no-print">
+                        <button onclick="window.print()" class="btn-secondary" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                        <button onclick="executeFilterSearch()" class="btn-primary" style="font-size: 0.72rem; padding: 5px 10px; width: auto;">🔍 Search</button>
+                        <button onclick="exportToDetailedExcel()" class="btn-secondary" style="font-size: 0.72rem; padding: 5px 10px;" title="Exports ONLY filtered search results">📊 Excel (Filtered)</button>
+                    </div>
+                </div>
+                <div class="filter-panel no-print">
+                    <div>
+                        <label>Book No</label>
+                        <input type="text" id="f-book" placeholder="Book #" list="dl-books">
+                        <datalist id="dl-books"></datalist>
+                    </div>
+                    <div>
+                        <label>Serial No</label>
+                        <input type="text" id="f-serial" placeholder="Serial #">
+                    </div>
+                    <div>
+                        <label>Student Name</label>
+                        <input type="text" id="f-name" placeholder="Name" list="dl-names">
+                        <datalist id="dl-names"></datalist>
+                    </div>
+                    <div>
+                        <label>Roll Number</label>
+                        <input type="text" id="f-roll" placeholder="Roll #" list="dl-rolls-filter">
+                        <datalist id="dl-rolls-filter"></datalist>
+                    </div>
+                    <div>
+                        <label>Course</label>
+                        <select id="f-course"></select>
+                    </div>
+                    <div>
+                        <label>Branch</label>
+                        <select id="f-branch"></select>
+                    </div>
+                    <div>
+                        <label>Purpose</label>
+                        <select id="f-purpose"></select>
+                    </div>
+                    <div>
+                        <label>Semester</label>
+                        <select id="f-sem"></select>
+                    </div>
+                    <div>
+                        <label>Payment Mode</label>
+                        <select id="f-mode">
+                            <option value="">All Modes</option>
+                            <option value="UPI / Online">UPI / Online</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Demand Draft">Demand Draft</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Status</label>
+                        <select id="f-status">
+                            <option value="">All Status</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>From Date</label>
+                        <input type="date" id="f-from">
+                    </div>
+                    <div>
+                        <label>Upto Date</label>
+                        <input type="date" id="f-upto">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Book / Serial</th>
+                                <th>Date</th>
+                                <th>Student Name</th>
+                                <th>Course / Branch</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th style="text-align: right;" class="no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receipts-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="empty-state" style="text-align: center; padding: 25px; color: var(--text-muted); font-size: 0.82rem;">
+                    No receipts found matching criteria.
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 4: RECEIPT PRINT VOUCHER VIEW -->
+        <section id="page-receipt-view" class="page-section">
+            <div style="max-width: 750px; margin: 0 auto;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;" class="no-print">
+                    <button onclick="switchPage('records')" class="btn-secondary" style="padding:6px 12px;">&larr; Back to Records</button>
+                    <button onclick="printReceiptView()" class="btn-primary" style="width: auto; padding: 6px 14px;">🖨️ Print / Save PDF</button>
+                </div>
+                <div id="printable-view-area" class="printable-receipt">
+                    <img id="m-watermark-img" class="receipt-watermark-logo" src="" alt="Watermark Logo">
+                    <div id="m-watermark-text" class="receipt-watermark-text">GIST RAYAGADA</div>
+                    <div class="receipt-content">
+                        <div id="m-stamp" class="rv-stamp">CANCELLED</div>
+                        <div id="m-duplicate-badge" style="display:none; text-align:center; background:#fef3c7; border:1px solid #f59e0b; padding:4px; border-radius:4px; font-weight:bold; color:#b45309; font-size:0.78rem; margin-bottom:8px;">
+                            *** DUPLICATE RECEIPT COPY ***
+                        </div>
+                        <div class="inst-header">
+                            <img id="m-logo-img" class="inst-logo-img" src="" alt="Logo">
+                            <div class="inst-header-text">
+                                <h2 id="m-college-name">Gandhi Institute of Science and Technology</h2>
+                                <p id="m-college-address">Rayagada, Odisha, India | Phone: +91 9876543210</p>
+                                <p id="m-college-web">Web: www.gistrayagada.edu.in | Email: contact@gistrayagada.edu.in</p>
+                            </div>
+                        </div>
+                        <div class="rv-title">RECEIPT</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">
+                            <div>Book No: <span id="modal-book" style="font-weight: 700; color: var(--text-main);"></span> | Serial No: <span id="modal-serial" style="font-weight: 700; color: var(--text-main);"></span></div>
+                            
+                        </div>
+                        <div style="background: var(--gray-light); padding: 8px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 8px; border: 1px solid var(--border-color);">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Student Name:</span> <strong id="modal-name"></strong></div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Roll / ID No:</span> <span id="modal-roll" style="font-weight:600;"></span></div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Course & Branch:</span> <span id="modal-course-branch"></span></div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Payment Mode:</span> <span id="modal-mode"></span></div>
+                            <div style="display:flex; justify-content:space-between;"><span>Reference UTR:</span> <span id="modal-ref"></span></div>
+                        </div>
+                        <table style="width:100%; border-collapse: collapse; margin-bottom: 8px; font-size: 0.78rem;">
+                            <thead>
+                                <tr style="background:#e5e7eb;">
+                                    <th style="padding:5px; text-align:left;">Fee Purpose / Head</th>
+                                    <th style="padding:5px; text-align:left;">Semester</th>
+                                    <th style="padding:5px; text-align:right;">Amount (₹)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-fee-breakdown"></tbody>
+                        </table>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 6px; font-weight: bold; font-size: 0.9rem;">
+                            <span>Total Amount Paid:</span>
+                            <span id="modal-amount" style="color: var(--primary);"></span>
+                        </div>
+                        <div id="modal-words" class="rv-words"></div>
+                        <div id="m-cancel-reason-box" style="display:none; margin-top:6px; padding:6px; background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; font-size:0.72rem; color:#b91c1c;">
+                            <strong>Reason for Cancellation:</strong> <span id="m-cancel-reason-txt"></span>
+                        </div>
+                        <div style="margin-top: 8px; padding: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.68rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Bank Accounts:</strong> <span id="m-bank-info">SBI | A/C: 123456789 | IFSC: SBIN0001234</span>
+                            </div>
+                            <div id="m-qr-container" style="text-align: right; display: none;">
+                                <img id="m-qr-img" src="" style="max-height: 50px; width: auto; border: 1px solid #ccc; border-radius: 4px;">
+                                <div style="font-size: 0.58rem; color: #64748b;">Scan to Pay</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; font-size: 0.68rem; color: var(--text-muted);">
+                            <div>Status: <span id="modal-status-badge" style="font-weight: bold; color: var(--success);">ACTIVE</span></div>
+                            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                                <img id="m-company-logo-img" class="company-logo-img" src="" alt="Company Logo">
+                                <div style="text-align: right; margin-top: 6px;">Authorized Signatory<br><br>___________________________</div>
+                            </div>
+                        </div>
+                        <div class="rv-foot">Date: <b id="modal-date"></b> &nbsp;|&nbsp; Time: <b id="modal-time"></b></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 5: RECEIPT BOOKS REGISTRY -->
+        <section id="page-books" class="page-section">
+            <div class="card" style="max-width: 850px; margin: 0 auto;">
+                <div class="card-header">
+                    <span>Receipt Books Registry Management</span>
+                    <button onclick="window.print()" class="btn-secondary no-print" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                </div>
+                <div class="panel no-print">
+                    <h4>📄 Full Receipt Book PDF Export</h4>
+                    <div class="form-row-3">
+                        <div><label>Receipt Book</label><select id="bp-book" onchange="bookRangeFill()"></select></div>
+                        <div><label>From Serial</label><input type="number" id="bp-from" min="1"></div>
+                        <div><label>To Serial</label><input type="number" id="bp-to" min="1"></div>
+                    </div>
+                    <button class="btn-primary" style="margin-top:10px;width:auto" onclick="printBookPDF()">📥 Download Book PDF</button>
+                    <p class="note">All receipts in the range are exported consecutively. In the print window choose "Save as PDF".</p>
+                </div>
+                <form onsubmit="addBookRegistry(event)" class="no-print" style="margin-bottom: 14px; background: var(--gray-light); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <input type="hidden" id="reg-edit-index" value="">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Book Number</label>
+                            <input type="text" id="reg-book-no" required placeholder="BK-2026-01">
+                        </div>
+                        <div class="form-group">
+                            <label>Serial Range</label>
+                            <input type="text" id="reg-serial-range" required placeholder="1 to 1000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned Staff Name</label>
+                        <input type="text" id="reg-assigned" required placeholder="Mr. Rajesh Kumar">
+                    </div>
+                    <button type="submit" id="reg-submit-btn" class="btn-primary" style="margin-top: 6px;">Register Receipt Book</button>
+                </form>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Book No</th>
+                                <th>Range</th>
+                                <th>Assigned Staff</th>
+                                <th style="text-align: right;" class="no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="books-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 6: STUDENTS DB -->
+        <section id="page-students" class="page-section">
+            <div class="card">
+                <div class="card-header">
+                    <span>Student Database (Academic Year, Course & Branch)</span>
+                    <div style="display:flex; gap:6px;" class="no-print">
+                        <button onclick="window.print()" class="btn-secondary" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                        <button onclick="exportFilteredStudentsExcel()" class="btn-secondary" style="font-size: 0.72rem; padding: 5px 10px;">📊 Excel</button>
+                        <button onclick="promptClearStudentsDB()" class="btn-danger" style="font-size: 0.72rem; padding: 5px 10px;">Clear DB</button>
+                    </div>
+                </div>
+                <div class="panel no-print">
+                    <h4>🧾 Student Payment History & Report Card</h4>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <input type="text" id="sh-q" list="dl-rolls" placeholder="Roll number or student name" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')shFind()">
+                        <button class="btn-primary" style="width:auto" onclick="shFind()">🔍 Show History</button>
+                    </div>
+                    <div id="sh-out"></div>
+                </div>
+                <form onsubmit="saveSingleStudent(event)" class="no-print" style="background: var(--gray-light); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Roll / ID Number</label>
+                            <input type="text" id="st-roll" required placeholder="e.g. 2026001">
+                        </div>
+                        <div class="form-group">
+                            <label>Student Full Name</label>
+                            <input type="text" id="st-name" required placeholder="Rahul Kumar">
+                        </div>
+                    </div>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>1. Academic Year</label>
+                            <select id="st-acad-year" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>2. Course</label>
+                            <select id="st-course" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>3. Branch / Department</label>
+                            <select id="st-branch" required></select>
+                        </div>
+                    </div>
+                    <button type="submit" id="st-btn" class="btn-primary" style="margin-top: 6px;">Add / Update Student Entry</button>
+                </form>
+                <div class="filter-panel no-print">
+                    <div>
+                        <label>Filter Academic Year</label>
+                        <select id="st-f-year" onchange="renderStudentsTable()"></select>
+                    </div>
+                    <div>
+                        <label>Filter Course</label>
+                        <select id="st-f-course" onchange="renderStudentsTable()"></select>
+                    </div>
+                    <div>
+                        <label>Filter Branch</label>
+                        <select id="st-f-branch" onchange="renderStudentsTable()"></select>
+                    </div>
+                </div>
+                <div style="background: white; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; margin-bottom: 14px;" class="no-print">
+                    <h4 style="font-size:0.8rem; font-weight:bold; color:var(--primary); margin-bottom:6px;">Bulk Excel / CSV Import</h4>
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" onchange="handleExcelFileUpload(event)">
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Academic Year</th>
+                                <th>Course</th>
+                                <th>Branch</th>
+                                <th style="text-align: right;" class="no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 7: DROPDOWN MANAGER -->
+        <section id="page-dropdowns" class="page-section">
+            <div class="card" style="max-width: 850px; margin: 0 auto;">
+                <div class="card-header">
+                    <span>Dynamic Dropdown Options Manager</span>
+                    <button onclick="window.print()" class="btn-secondary no-print" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;" class="no-print">Manage Courses, Branches, Fee Purposes, Academic Years, and Semesters. Password required.</p>
+                <div class="form-group no-print">
+                    <label>Select Category</label>
+                    <select id="dd-category-select" onchange="renderDropdownItemsList()">
+                        <option value="courses">Courses</option>
+                        <option value="branches">Branches / Departments</option>
+                        <option value="purposes">Fee Purposes / Heads</option>
+                        <option value="acadYears">Academic Years</option>
+                        <option value="semesters">Semesters</option>
+                    </select>
+                </div>
+                <div class="form-row no-print" style="margin-bottom: 10px;">
+                    <input type="text" id="dd-new-item" placeholder="Type new option name">
+                    <button type="button" onclick="addDropdownItemWithAuth()" class="btn-primary">Add Option</button>
+                </div>
+                <div class="table-container" style="max-height: 250px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Option Name</th>
+                                <th style="text-align: right;" class="no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dropdown-items-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 8: COLLEGE SETTINGS & BRANDING -->
+        <section id="page-settings" class="page-section">
+            <div class="card" style="max-width: 850px; margin: 0 auto;">
+                <div class="card-header">
+                    <span>College Details & Branding Media Configuration</span>
+                    <button onclick="window.print()" class="btn-secondary no-print" style="font-size: 0.72rem; padding: 5px 10px;">🖨️ Print PDF</button>
+                </div>
+                <form onsubmit="saveCollegeSettingsWithAuth(event)">
+                    <div class="form-group">
+                        <label>College Name</label>
+                        <input type="text" id="cfg-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="cfg-address" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="text" id="cfg-phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email ID</label>
+                            <input type="email" id="cfg-email" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Official Mobile Number (receives security OTPs)</label>
+                        <input type="text" id="cfg-otp-mobile" inputmode="numeric" maxlength="14" placeholder="10-digit mobile">
+                    </div>
+                    <div class="form-group">
+                        <label>Website URL</label>
+                        <input type="text" id="cfg-web" required>
+                    </div>
+                    <hr style="margin: 10px 0; border: none; border-top: 1px solid var(--border-color);" class="no-print">
+                    <div class="form-group no-print">
+                        <label>1. Main College Logo</label>
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'logoImage')">
+                    </div>
+                    <div class="form-group no-print">
+                        <label>2. Watermark Backdrop Logo Image</label>
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'watermarkImage')">
+                    </div>
+                    <div class="form-group">
+                        <label>3. Watermark Backdrop Text</label>
+                        <input type="text" id="cfg-watermark-txt" placeholder="e.g. GIST RAYAGADA">
+                    </div>
+                    <div class="form-group no-print">
+                        <label>4. Company / Vendor Small Logo</label>
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'companyLogoImage')">
+                    </div>
+                    <div class="form-group no-print">
+                        <label>5. Payment QR Code Image</label>
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'qrImage')">
+                    </div>
+                    <div class="form-group" style="margin-top:8px;">
+                        <label>Bank & Payment Details</label>
+                        <input type="text" id="cfg-bank-info-txt" required placeholder="SBI | A/C: 123456789 | IFSC: SBIN0001234">
+                    </div>
+                    <button type="submit" class="btn-primary no-print" style="margin-top: 10px;">Save Settings</button>
+                </form>
+            </div>
+        </section>
+        <!-- PAGE 9: BACKUP & RESTORE -->
+        <section id="page-backup" class="page-section">
+            <div class="card" style="max-width: 850px; margin: 0 auto;">
+                <div class="card-header">
+                    <span>30-Day Backup & Cross-System Migration</span>
+                </div>
+                <div style="background: var(--gray-light); padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--border-color);">
+                    <h4 style="font-size:0.82rem; font-weight:bold; color:var(--primary); margin-bottom:4px;">Full System Backup (.JSON)</h4>
+                    <p style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Export or restore all data across different PCs instantly.</p>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button onclick="downloadFullSystemBackup()" class="btn-primary" style="width:auto; font-size:0.78rem;">📥 Export Backup</button>
+                        <label class="btn-secondary" style="font-size:0.78rem; cursor:pointer; display:inline-block; padding:8px 12px;">
+                            📤 Restore Backup
+                            <input type="file" accept=".json" onchange="restoreSystemBackup(event)" style="display:none;">
+                        </label>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h4>📧 Automated Daily Email Backup (JSON) <span class="sim-badge">SIMULATION</span></h4>
+                    <p style="font-size:.78rem">Recipient: <b id="bk-to"></b></p>
+                    <button id="bk-btn" class="btn-primary" style="width:auto;margin-top:8px" onclick="simulateDailyBackup()">📨 Simulate & Send Daily Backup to College Email</button>
+                    <pre id="bk-log" class="bk-log"></pre>
+                    <p class="note">The checksum is real, but no email leaves this device. Real off-site delivery needs a server-side mailer (e.g. Flask + SMTP).</p>
+                </div>
+                <div class="card-header" style="margin-top: 16px;">
+                    <span>Rolling 30-Day Snapshots</span>
+                </div>
+                <div class="table-container" style="max-height: 220px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Snapshot Date</th>
+                                <th>Data Size</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backup-snapshots-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- PAGE 10: SECURITY CREDENTIALS -->
+        <section id="page-security" class="page-section">
+            <div class="card" style="max-width: 450px; margin: 0 auto;">
+                <div class="card-header">
+                    <span>Security Credentials</span>
+                </div>
+                <div id="sec-hint" class="panel" style="font-size:.76rem;padding:10px"></div>
+                <form onsubmit="saveSecurityCredentials(event)" class="panel">
+                    <h4>🔑 Login Password (to sign in)</h4>
+                    <div class="form-group"><label>Current Login Password</label><input type="password" id="sec-curr-pass" required placeholder="Current login password"></div>
+                    <div class="form-group"><label>New User ID</label><input type="text" id="sec-new-user" required placeholder="New User ID"></div>
+                    <div class="form-group"><label>New Login Password</label><input type="password" id="sec-new-pass" required placeholder="Min 6 characters"></div>
+                    <button type="submit" class="btn-primary">Change Login Password (OTP)</button>
+                    <button type="button" class="btn-secondary" style="width:100%;margin-top:6px" onclick="otpOpen('recover')">Forgot login password? Reset via OTP</button>
+                </form>
+                <form onsubmit="saveActionPassword(event)" class="panel">
+                    <h4>🛡️ Action Password (edit, delete, add/save, reset)</h4>
+                    <div class="form-group"><label>Current Action Password</label><input type="password" id="sec-act-curr" required placeholder="Current action password"></div>
+                    <div class="form-group"><label>New Action Password</label><input type="password" id="sec-act-new" required placeholder="Min 6 characters, different from login"></div>
+                    <button type="submit" class="btn-primary">Change Action Password (OTP)</button>
+                    <button type="button" class="btn-secondary" style="width:100%;margin-top:6px" onclick="otpOpen('recoverAct')">Forgot action password? Reset via OTP</button>
+                </form>
+            </div>
+        </section>
+    </main>
+    <footer>
+        &copy; 2026 Gandhi Institute of Science and Technology. Multi-Page Enterprise System.
+    </footer>
+    <script>
+        // Multi-Page Router
+        function switchPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            if(event && event.target && event.target.classList.contains('nav-tab')) {
+                event.target.classList.add('active');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            renderApp();
+        }
+        let authConfig = JSON.parse(localStorage.getItem('gist_auth_cfg') || '{"user":"admin","pass":"admin123"}');
+        if(!authConfig.actPass) authConfig.actPass = 'edit123';
+        loginHint();
+        function checkAdminPassword() {
+            const pwd = prompt('🔐 Enter ACTION Password (different from login password):');
+            return pwd !== null && pwd === authConfig.actPass;
+        }
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('login-user').value;
+            const p = document.getElementById('login-pass').value;
+            if(u === authConfig.user && p === authConfig.pass) {
+                document.getElementById('login-overlay').style.display = 'none';
+                localStorage.setItem('gist_logged_in', 'true');
+            } else { alert('Invalid User ID or Password!'); }
+        }
+        function logout() {
+            localStorage.removeItem('gist_logged_in');
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
+        if(localStorage.getItem('gist_logged_in') === 'true') {
+            document.getElementById('login-overlay').style.display = 'none';
+        }
+        let receipts = JSON.parse(localStorage.getItem('gist_e_receipts') || '[]');
+        let studentsDB = JSON.parse(localStorage.getItem('gist_students_db') || '{"2026001":{"name":"Rahul Kumar","year":"2025-2026","course":"B.Tech","branch":"Computer Science & Engineering"},"2026002":{"name":"Priya Sharma","year":"2025-2026","course":"BCA","branch":"Computer Science & Engineering"}}');
+        let booksRegistry = JSON.parse(localStorage.getItem('gist_books_reg') || '[{"bookNo":"BK-2026-01","range":"1 to 1000","assigned":"Accounts Dept"}]');
+        let dropdownsData = JSON.parse(localStorage.getItem('gist_dropdowns_cfg') || JSON.stringify({
+            courses: ["B.Tech", "M.Tech", "Diploma", "BCA", "MCA", "MBA"],
+            branches: ["Computer Science & Engineering", "Electronics & Communication", "Mechanical Engineering", "Civil Engineering", "Electrical Engineering"],
+            purposes: ["Tuition Fees", "Admission Fees", "Registration Fees", "Backpack Fee", "Library Fees", "Exam Fees", "Hostel Fees"],
+            acadYears: ["2025-2026", "2026-2027", "2027-2028"],
+            semesters: ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester", "5th Semester", "6th Semester", "7th Semester", "8th Semester"]
+        }));
+        let collegeCfg = JSON.parse(localStorage.getItem('gist_college_cfg') || JSON.stringify({
+            name: "Gandhi Institute of Science and Technology",
+            address: "Rayagada, Odisha, India",
+            phone: "+91 9876543210",
+            email: "contact@gistrayagada.edu.in",
+            web: "www.gistrayagada.edu.in",
+            bankInfo: "State Bank of India | A/C: 38920192831 | IFSC: SBIN0001234",
+            watermarkText: "GIST RAYAGADA",
+            qrImage: "", logoImage: "", watermarkImage: "", companyLogoImage: ""
+        }));
+        let snapshots = JSON.parse(localStorage.getItem('gist_rolling_backups') || '{}');
+        let lastDeletedState = null;
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('receipt-date').value = todayStr;
+        document.getElementById('rpt-target-date').value = todayStr;
+        document.getElementById('rpt-target-month').value = todayStr.substring(0, 7);
+        function triggerMasterReset() {
+            const p1 = prompt('⚠️ MASTER RESET WARNING: This will clear ALL data! Enter ACTION Password (1/2):');
+            if(p1 !== authConfig.actPass) { alert('Incorrect password. Reset cancelled.'); return; }
+            const p2 = prompt('⚠️ FINAL CONFIRMATION: Re-enter ACTION Password to permanently clear data (2/2):');
+            if(p2 !== authConfig.actPass) { alert('Incorrect password. Reset cancelled.'); return; }
+            lastDeletedState = {
+                receipts: JSON.parse(JSON.stringify(receipts)),
+                studentsDB: JSON.parse(JSON.stringify(studentsDB)),
+                booksRegistry: JSON.parse(JSON.stringify(booksRegistry))
+            };
+            receipts = [];
+            studentsDB = {};
+            booksRegistry = [];
+            localStorage.removeItem('gist_e_receipts');
+            localStorage.removeItem('gist_students_db');
+            localStorage.removeItem('gist_books_reg');
+            renderApp();
+            document.getElementById('undo-banner').style.display = 'block';
+            alert('All data has been cleared. Click Undo at the top if this was accidental.');
+        }
+        function undoMasterReset() {
+            if(lastDeletedState) {
+                receipts = lastDeletedState.receipts;
+                studentsDB = lastDeletedState.studentsDB;
+                booksRegistry = lastDeletedState.booksRegistry;
+                localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+                localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+                localStorage.setItem('gist_books_reg', JSON.stringify(booksRegistry));
+                renderApp();
+                document.getElementById('undo-banner').style.display = 'none';
+                lastDeletedState = null;
+                alert('Successfully restored all previous data!');
+            }
+        }
+        function triggerAutoBackup() {
+            snapshots[todayStr] = {
+                date: todayStr, receipts, studentsDB, booksRegistry, collegeCfg
+            };
+            const dates = Object.keys(snapshots).sort();
+            if(dates.length > 30) delete snapshots[dates[0]];
+            localStorage.setItem('gist_rolling_backups', JSON.stringify(snapshots));
+        }
+        triggerAutoBackup();
+        function checkDuplicateSerial() {
+            const selectedBook = document.getElementById('book-no-select').value;
+            const enteredSerial = document.getElementById('serial-no').value;
+            const editIdx = document.getElementById('edit-index').value;
+            if(!selectedBook || !enteredSerial) return;
+            const isDuplicate = receipts.some((r, idx) => {
+                if(editIdx !== '' && parseInt(editIdx) === idx) return false;
+                return r.bookNo === selectedBook && r.serialNo.toString() === enteredSerial.toString() && r.status !== 'CANCELLED';
+            });
+            if(isDuplicate) { alert(`⚠️ ALERT: Serial Number ${enteredSerial} already exists in Book ${selectedBook}!`); }
+        }
+        function applyCollegeConfig() {
+            document.getElementById('header-college-name').innerText = collegeCfg.name;
+            document.getElementById('header-college-sub').innerText = `${collegeCfg.address} | Portal`;
+            document.getElementById('login-college-name').innerText = collegeCfg.name;
+            document.getElementById('m-college-name').innerText = collegeCfg.name;
+            document.getElementById('m-college-address').innerText = `${collegeCfg.address} | Phone: ${collegeCfg.phone}`;
+            document.getElementById('m-college-web').innerText = `Web: ${collegeCfg.web} | Email: ${collegeCfg.email}`;
+            document.getElementById('m-bank-info').innerText = collegeCfg.bankInfo;
+            document.getElementById('m-watermark-text').innerText = collegeCfg.watermarkText || 'GIST RAYAGADA';
+            const headerLogo = document.getElementById('header-logo');
+            const headerFallback = document.getElementById('header-fallback-icon');
+            const modalLogo = document.getElementById('m-logo-img');
+            if(collegeCfg.logoImage) {
+                headerLogo.src = collegeCfg.logoImage; headerLogo.style.display = 'block'; headerFallback.style.display = 'none';
+                modalLogo.src = collegeCfg.logoImage; modalLogo.style.display = 'block';
+            } else {
+                headerLogo.style.display = 'none'; headerFallback.style.display = 'flex'; modalLogo.style.display = 'none';
+            }
+            const watermarkImg = document.getElementById('m-watermark-img');
+            if(collegeCfg.watermarkImage) { watermarkImg.src = collegeCfg.watermarkImage; watermarkImg.style.display = 'block'; }
+            else { watermarkImg.style.display = 'none'; }
+            const companyLogoImg = document.getElementById('m-company-logo-img');
+            if(collegeCfg.companyLogoImage) { companyLogoImg.src = collegeCfg.companyLogoImage; companyLogoImg.style.display = 'block'; }
+            else { companyLogoImg.style.display = 'none'; }
+            if(collegeCfg.qrImage) {
+                document.getElementById('m-qr-container').style.display = 'flex';
+                document.getElementById('m-qr-img').src = collegeCfg.qrImage;
+            } else { document.getElementById('m-qr-container').style.display = 'none'; }
+        }
+        function populateDynamicDropdowns() {
+            document.getElementById('course').innerHTML = dropdownsData.courses.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('branch').innerHTML = dropdownsData.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+            document.getElementById('st-acad-year').innerHTML = dropdownsData.acadYears.map(y => `<option value="${y}">${y}</option>`).join('');
+            document.getElementById('st-course').innerHTML = dropdownsData.courses.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('st-branch').innerHTML = dropdownsData.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+            document.getElementById('st-f-year').innerHTML = `<option value="">All Years</option>` + dropdownsData.acadYears.map(y => `<option value="${y}">${y}</option>`).join('');
+            document.getElementById('st-f-course').innerHTML = `<option value="">All Courses</option>` + dropdownsData.courses.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('st-f-branch').innerHTML = `<option value="">All Branches</option>` + dropdownsData.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+            document.getElementById('f-course').innerHTML = `<option value="">All Courses</option>` + dropdownsData.courses.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('f-branch').innerHTML = `<option value="">All Branches</option>` + dropdownsData.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+            document.getElementById('f-purpose').innerHTML = `<option value="">All Purposes</option>` + dropdownsData.purposes.map(p => `<option value="${p}">${p}</option>`).join('');
+            document.getElementById('f-sem').innerHTML = `<option value="">All Semesters</option>` + dropdownsData.semesters.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+        function populateBooksDropdown() {
+            const select = document.getElementById('book-no-select');
+            select.innerHTML = '';
+            booksRegistry.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.bookNo;
+                opt.innerText = `${b.bookNo} (${b.range}) - Staff: ${b.assigned}`;
+                select.appendChild(opt);
+            });
+            if(booksRegistry.length > 0) autoUpdateSerial(booksRegistry[0].bookNo);
+        }
+        function autoUpdateSerial(bookNo) {
+            const countForBook = receipts.filter(r => r.bookNo === bookNo && r.status !== 'CANCELLED').length;
+            document.getElementById('serial-no').value = countForBook + 1;
+        }
+        function populateDataLists() {
+            const rollsList = document.getElementById('dl-rolls');
+            const rollsFilterList = document.getElementById('dl-rolls-filter');
+            const namesList = document.getElementById('dl-names');
+            const booksList = document.getElementById('dl-books');
+            rollsList.innerHTML = ''; rollsFilterList.innerHTML = ''; namesList.innerHTML = ''; booksList.innerHTML = '';
+            for(let r in studentsDB) {
+                rollsList.innerHTML += `<option value="${r}">${studentsDB[r].name}</option>`;
+                rollsFilterList.innerHTML += `<option value="${r}">`;
+                namesList.innerHTML += `<option value="${studentsDB[r].name}">`;
+            }
+            booksRegistry.forEach(b => { booksList.innerHTML += `<option value="${b.bookNo}">`; });
+        }
+        function autoFillStudent(roll) {
+            const cleanRoll = roll.trim();
+            if(studentsDB[cleanRoll]) {
+                document.getElementById('student-name').value = studentsDB[cleanRoll].name;
+                if(studentsDB[cleanRoll].course) document.getElementById('course').value = studentsDB[cleanRoll].course;
+                if(studentsDB[cleanRoll].branch) document.getElementById('branch').value = studentsDB[cleanRoll].branch;
+            }
+        }
+        function addFeeRow(purpose = '', semester = '', amount = '') {
+            const container = document.getElementById('fee-items-container');
+            const div = document.createElement('div');
+            div.className = 'fee-item-row';
+            let defPurp = purpose || dropdownsData.purposes[0] || 'Tuition Fees';
+            let defSem = semester || dropdownsData.semesters[0] || '1st Semester';
+            let purposeOpts = dropdownsData.purposes.map(p => `<option value="${p}" ${p===defPurp?'selected':''}>${p}</option>`).join('');
+            let semOpts = dropdownsData.semesters.map(s => `<option value="${s}" ${s===defSem?'selected':''}>${s}</option>`).join('');
+            div.innerHTML = `
+                <select class="fee-purpose" required>${purposeOpts}</select>
+                <select class="fee-sem" required>${semOpts}</select>
+                <input type="number" class="fee-amount" required min="1" step="0.01" placeholder="Amount (₹)" value="${amount}">
+                <button type="button" onclick="this.parentElement.remove()" class="btn-danger no-print" style="padding: 6px 8px;">×</button>
+            `;
+            container.appendChild(div);
+        }
+        addFeeRow();
+        function renderApp() {
+            applyCollegeConfig();
+            populateDynamicDropdowns();
+            populateBooksDropdown();
+            populateDataLists();
+            executeFilterSearch();
+            renderBooksTable();
+            renderStudentsTable();
+            generateAuditReport();
+            renderBackupSnapshotsTable(); updateSecHint(); renderMailLog();
+        }
+        function toggleAuditFrequencyControls() {
+            const freq = document.getElementById('rpt-freq').value;
+            document.getElementById('rpt-date-box').style.display = freq === 'date' ? 'block' : 'none';
+            document.getElementById('rpt-month-box').style.display = freq === 'month' ? 'block' : 'none';
+            generateAuditReport();
+        }
+        function generateAuditReport() {
+            const freq = document.getElementById('rpt-freq').value;
+            const targetDate = document.getElementById('rpt-target-date').value;
+            const targetMonth = document.getElementById('rpt-target-month').value;
+            let reportTitle = 'Today Daily Report';
+            let filtered = [];
+            if(freq === 'today') { filtered = receipts.filter(r => r.date === todayStr); reportTitle = `Daily (${todayStr})`; }
+            else if(freq === 'date') { filtered = receipts.filter(r => r.date === targetDate); reportTitle = `Date (${targetDate})`; }
+            else if(freq === 'month') { filtered = receipts.filter(r => r.date && r.date.startsWith(targetMonth)); reportTitle = `Month (${targetMonth})`; }
+            document.getElementById('rpt-sum-period').innerText = reportTitle;
+            document.getElementById('rpt-sum-count').innerText = filtered.length;
+            let totalAmt = filtered.filter(r => r.status !== 'CANCELLED').reduce((a, b) => a + b.feeItems.reduce((x, y) => x + parseFloat(y.amount || 0), 0), 0);
+            document.getElementById('rpt-sum-amount').innerText = '₹' + totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            const tbody = document.getElementById('audit-report-tbody');
+            tbody.innerHTML = '';
+            filtered.forEach(rec => {
+                const recTotal = rec.feeItems.reduce((a, b) => a + parseFloat(b.amount || 0), 0);
+                const breakdown = rec.feeItems.map(i => `${i.purpose} (${i.semester}): ₹${i.amount}`).join(', ');
+                const tr = document.createElement('tr');
+                if(rec.status === 'CANCELLED') tr.className = 'cancelled-row';
+                tr.innerHTML = `
+                    <td style="font-weight:600;">BK: ${rec.bookNo} / #${rec.serialNo}</td>
+                    <td>${rec.date}</td>
+                    <td>${rec.studentName}</td>
+                    <td>${rec.rollNo}</td>
+                    <td>${rec.course} (${rec.branch})</td>
+                    <td style="font-size:0.72rem;">${breakdown}</td>
+                    <td style="font-weight:600; color:var(--success);">₹${recTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td><span style="font-size:0.62rem; font-weight:bold; padding:2px 5px; border-radius:4px; background:${rec.status==='CANCELLED'?'#fee2e2':'#d1fae5'}; color:${rec.status==='CANCELLED'?'#dc2626':'#059669'};">${rec.status || 'ACTIVE'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function exportAuditReportExcel() {
+            const freq = document.getElementById('rpt-freq').value;
+            let filtered = freq === 'today' ? receipts.filter(r => r.date === todayStr) : receipts;
+            let csv = 'BookNo,SerialNo,Date,RollNo,StudentName,Course,Branch,FeeBreakdown,TotalAmount,Status\n';
+            filtered.forEach(r => {
+                const total = r.feeItems.reduce((a,b)=>a+parseFloat(b.amount||0),0);
+                const breakdown = r.feeItems.map(i => `${i.purpose} (${i.semester}): ₹${i.amount}`).join(' | ');
+                csv += `"${r.bookNo}","${r.serialNo}","${r.date}","${r.rollNo}","${r.studentName}","${r.course}","${r.branch}","${breakdown}",${total},"${r.status || 'ACTIVE'}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.setAttribute('href', url);
+            a.setAttribute('download', 'audit_report.csv'); a.click();
+        }
+        // Helper function to get filtered receipts based strictly on Search & Records criteria
+        function getFilteredReceipts() {
+            const fBook = document.getElementById('f-book').value.toLowerCase();
+            const fSerial = document.getElementById('f-serial').value.toLowerCase();
+            const fName = document.getElementById('f-name').value.toLowerCase();
+            const fRoll = document.getElementById('f-roll').value.toLowerCase();
+            const fCourse = document.getElementById('f-course').value;
+            const fBranch = document.getElementById('f-branch').value;
+            const fPurpose = document.getElementById('f-purpose').value;
+            const fSem = document.getElementById('f-sem').value;
+            const fMode = document.getElementById('f-mode').value;
+            const fStatus = document.getElementById('f-status').value;
+            const fFrom = document.getElementById('f-from').value;
+            const fUpto = document.getElementById('f-upto').value;
+            return receipts.filter((rec, index) => {
+                rec._originalIndex = index;
+                const purposeMatch = rec.feeItems.some(item => (!fPurpose || item.purpose === fPurpose) && (!fSem || item.semester === fSem));
+                if(fBook && !rec.bookNo.toLowerCase().includes(fBook)) return false;
+                if(fSerial && !rec.serialNo.toString().includes(fSerial)) return false;
+                if(fName && !rec.studentName.toLowerCase().includes(fName)) return false;
+                if(fRoll && !rec.rollNo.toLowerCase().includes(fRoll)) return false;
+                if(fCourse && rec.course !== fCourse) return false;
+                if(fBranch && rec.branch !== fBranch) return false;
+                if(fMode && rec.paymentMode !== fMode) return false;
+                if(fStatus && (rec.status || 'ACTIVE') !== fStatus) return false;
+                if(fFrom && rec.date < fFrom) return false;
+                if(fUpto && rec.date > fUpto) return false;
+                if((fPurpose || fSem) && !purposeMatch) return false;
+                return true;
+            });
+        }
+        function executeFilterSearch() {
+            const tbody = document.getElementById('receipts-tbody');
+            const emptyState = document.getElementById('empty-state');
+            tbody.innerHTML = '';
+            let filtered = getFilteredReceipts();
+            document.getElementById('stat-issued').innerText = receipts.length;
+            document.getElementById('stat-cancelled').innerText = receipts.filter(r => r.status === 'CANCELLED').length;
+            document.getElementById('stat-books').innerText = booksRegistry.length;
+            document.getElementById('stat-students').innerText = Object.keys(studentsDB).length;
+            let totalCol = receipts.filter(r => r.status !== 'CANCELLED').reduce((a, b) => a + b.feeItems.reduce((x, y) => x + parseFloat(y.amount || 0), 0), 0);
+            document.getElementById('stat-collection').innerText = '₹' + totalCol.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            let todayCol = receipts.filter(r => r.status !== 'CANCELLED' && r.date === todayStr).reduce((a, b) => a + b.feeItems.reduce((x, y) => x + parseFloat(y.amount || 0), 0), 0);
+            document.getElementById('stat-today').innerText = '₹' + todayCol.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            if (filtered.length === 0) { emptyState.style.display = 'block'; return; }
+            emptyState.style.display = 'none';
+            filtered.slice().reverse().forEach((rec) => {
+                const totalAmt = rec.feeItems.reduce((a, b) => a + parseFloat(b.amount || 0), 0);
+                const tr = document.createElement('tr');
+                const isCancelled = rec.status === 'CANCELLED';
+                if(isCancelled) tr.className = 'cancelled-row';
+                tr.innerHTML = `
+                    <td style="font-weight: 600; color: var(--primary);">BK: ${rec.bookNo}<br><span style="font-size:0.65rem; color:var(--text-muted);">Serial: ${rec.serialNo}</span></td>
+                    <td>${rec.date}</td>
+                    <td>${rec.studentName}<br><span style="font-size:0.65rem; color:var(--text-muted);">Roll: ${rec.rollNo}</span></td>
+                    <td>${rec.course} - ${rec.branch}</td>
+                    <td style="font-weight: 600; color: var(--success);">₹${totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td><span style="font-size:0.62rem; font-weight:bold; padding:2px 5px; border-radius:4px; background:${isCancelled?'#fee2e2':'#d1fae5'}; color:${isCancelled?'#dc2626':'#059669'};">${rec.status || 'ACTIVE'}</span></td>
+                    <td style="text-align: right; white-space: nowrap;" class="no-print">
+                        <button onclick="viewReceipt(${rec._originalIndex}, false)" class="btn-secondary" style="padding: 3px 5px; font-size: 0.65rem;">View</button>
+                        ${!isCancelled ? `<button onclick="viewReceipt(${rec._originalIndex}, true)" class="btn-warning" style="padding: 3px 5px; font-size: 0.65rem;">Dup</button>` : ''}
+                        ${!isCancelled ? `<button onclick="editReceipt(${rec._originalIndex})" class="btn-warning" style="padding: 3px 5px; font-size: 0.65rem;">Edit</button>` : ''}
+                        ${!isCancelled ? `<button onclick="cancelReceiptWithReason(${rec._originalIndex})" class="btn-danger" style="padding: 3px 5px; font-size: 0.65rem;">Cancel</button>` : ''}
+                        <button onclick="deleteReceipt(${rec._originalIndex})" class="btn-danger" style="padding: 3px 5px; font-size: 0.65rem;">Del</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function handleReceiptSubmit(e) {
+            e.preventDefault();
+            const editIndex = document.getElementById('edit-index').value;
+            const selectedBook = document.getElementById('book-no-select').value;
+            const enteredSerial = document.getElementById('serial-no').value;
+            const isDuplicate = receipts.some((r, idx) => {
+                if(editIndex !== '' && parseInt(editIndex) === idx) return false;
+                return r.bookNo === selectedBook && r.serialNo.toString() === enteredSerial.toString() && r.status !== 'CANCELLED';
+            });
+            if(isDuplicate) { alert(`Serial Number ${enteredSerial} already exists in Book ${selectedBook}.`); return; }
+            if(editIndex === '' && !checkAdminPassword()) { alert('Incorrect action password! Receipt not saved.'); return; }
+            const feeItems = [];
+            const purposes = document.querySelectorAll('.fee-purpose');
+            const sems = document.querySelectorAll('.fee-sem');
+            const amounts = document.querySelectorAll('.fee-amount');
+            for(let i=0; i<purposes.length; i++) {
+                feeItems.push({ purpose: purposes[i].value, semester: sems[i].value, amount: amounts[i].value });
+            }
+            const receiptData = {
+                bookNo: selectedBook, serialNo: enteredSerial,
+                date: document.getElementById('receipt-date').value,
+                course: document.getElementById('course').value,
+                branch: document.getElementById('branch').value,
+                rollNo: document.getElementById('roll-no').value,
+                studentName: document.getElementById('student-name').value,
+                paymentMode: document.getElementById('payment-mode').value,
+                referenceNo: document.getElementById('reference-no').value,
+                feeItems: feeItems, status: 'ACTIVE', time: new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true})
+            };
+            if(editIndex !== '') {
+                receiptData.status = receipts[editIndex].status; receiptData.time = receipts[editIndex].time || receiptData.time;
+                receipts[editIndex] = receiptData;
+                document.getElementById('edit-index').value = '';
+            } else { receipts.push(receiptData); }
+            localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+            triggerAutoBackup();
+            renderApp();
+            resetForm();
+            viewReceipt(editIndex !== '' ? editIndex : receipts.length - 1, false);
+        }
+        function viewReceipt(index, isDuplicate = false) {
+            const activeReceipt = receipts[index];
+            if (!activeReceipt) return;
+            document.getElementById('modal-book').innerText = activeReceipt.bookNo;
+            document.getElementById('modal-serial').innerText = activeReceipt.serialNo;
+            document.getElementById('modal-date').innerText = activeReceipt.date;
+            document.getElementById('modal-time').innerText = activeReceipt.time || '—';
+            document.getElementById('modal-name').innerText = activeReceipt.studentName;
+            document.getElementById('modal-roll').innerText = activeReceipt.rollNo;
+            document.getElementById('modal-course-branch').innerText = `${activeReceipt.course} (${activeReceipt.branch})`;
+            document.getElementById('modal-mode').innerText = activeReceipt.paymentMode;
+            document.getElementById('modal-ref').innerText = activeReceipt.referenceNo || 'N/A';
+            document.getElementById('m-duplicate-badge').style.display = isDuplicate ? 'block' : 'none';
+            const cancelBox = document.getElementById('m-cancel-reason-box');
+            if(activeReceipt.status === 'CANCELLED' && activeReceipt.cancelReason) {
+                cancelBox.style.display = 'block';
+                document.getElementById('m-cancel-reason-txt').innerText = activeReceipt.cancelReason;
+            } else { cancelBox.style.display = 'none'; }
+            const badge = document.getElementById('modal-status-badge');
+            const isCancelled = activeReceipt.status === 'CANCELLED';
+            badge.innerText = activeReceipt.status || 'ACTIVE';
+            badge.style.color = isCancelled ? 'var(--danger)' : 'var(--success)';
+            const breakdownTbody = document.getElementById('modal-fee-breakdown');
+            breakdownTbody.innerHTML = '';
+            let total = 0;
+            activeReceipt.feeItems.forEach(item => {
+                total += parseFloat(item.amount || 0);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:4px; border-bottom:1px solid #e5e7eb;">${item.purpose}</td>
+                    <td style="padding:4px; border-bottom:1px solid #e5e7eb;">${item.semester}</td>
+                    <td style="padding:4px; border-bottom:1px solid #e5e7eb; text-align:right;">₹${parseFloat(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                `;
+                breakdownTbody.appendChild(tr);
+            });
+            document.getElementById('modal-amount').innerText = '₹' + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('modal-words').innerText = inWords(total);
+            document.getElementById('m-stamp').style.display = isCancelled ? 'block' : 'none';
+            switchPage('receipt-view');
+        }
+        function editReceipt(index) {
+            if(!checkAdminPassword()) { alert('Incorrect password! Edit not allowed.'); return; }
+            const rec = receipts[index];
+            if(rec.status === 'CANCELLED') { alert('Cancelled receipts cannot be edited.'); return; }
+            document.getElementById('edit-index').value = index;
+            document.getElementById('form-title').innerText = `Edit Receipt (Book: ${rec.bookNo}, Serial: ${rec.serialNo})`;
+            document.getElementById('book-no-select').value = rec.bookNo;
+            document.getElementById('serial-no').value = rec.serialNo;
+            document.getElementById('receipt-date').value = rec.date;
+            document.getElementById('course').value = rec.course;
+            document.getElementById('branch').value = rec.branch;
+            document.getElementById('roll-no').value = rec.rollNo;
+            document.getElementById('student-name').value = rec.studentName;
+            document.getElementById('payment-mode').value = rec.paymentMode;
+            document.getElementById('reference-no').value = rec.referenceNo || '';
+            document.getElementById('fee-items-container').innerHTML = '';
+            rec.feeItems.forEach(item => { addFeeRow(item.purpose, item.semester, item.amount); });
+            switchPage('issue');
+        }
+        function cancelReceiptWithReason(index) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const reason = prompt('Cancellation mandatory reason:');
+            if(!reason || reason.trim() === '') { alert('Reason mandatory.'); return; }
+            receipts[index].status = 'CANCELLED';
+            receipts[index].cancelReason = reason.trim();
+            localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+            triggerAutoBackup();
+            renderApp();
+            alert('Receipt cancelled.');
+        }
+        function deleteReceipt(index) {
+            const r = receipts[index]; if(!r) return;
+            if(!checkAdminPassword()) { alert('Incorrect password! Delete not allowed.'); return; }
+            if(!confirm(`Permanently delete receipt Book ${r.bookNo} / Serial ${r.serialNo} (${r.studentName})?\nTip: use Cancel instead to keep an audit trail.`)) return;
+            triggerAutoBackup();
+            receipts.splice(index, 1);
+            localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+            renderApp(); alert('Receipt deleted. A snapshot of the earlier data is kept in Backup & Restore.');
+        }
+        function resetForm() {
+            document.getElementById('receipt-form').reset();
+            document.getElementById('edit-index').value = '';
+            document.getElementById('receipt-date').value = todayStr;
+            if(booksRegistry.length > 0) autoUpdateSerial(booksRegistry[0].bookNo);
+            document.getElementById('fee-items-container').innerHTML = '';
+            addFeeRow();
+        }
+        function saveSingleStudent(e) {
+            e.preventDefault();
+            const roll = document.getElementById('st-roll').value.trim();
+            const name = document.getElementById('st-name').value.trim();
+            const year = document.getElementById('st-acad-year').value;
+            const course = document.getElementById('st-course').value;
+            const branch = document.getElementById('st-branch').value;
+            if(!roll || !name) return;
+            if(!checkAdminPassword()) { alert('Incorrect action password! Student not saved.'); return; }
+            studentsDB[roll] = { ...(studentsDB[roll]||{}), name: name, year: year, course: course, branch: branch };
+            localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+            triggerAutoBackup();
+            renderApp();
+            document.getElementById('st-roll').value = '';
+            document.getElementById('st-name').value = '';
+            alert('Student saved!');
+        }
+        function renderStudentsTable() {
+            const filterYear = document.getElementById('st-f-year').value;
+            const filterCourse = document.getElementById('st-f-course').value;
+            const filterBranch = document.getElementById('st-f-branch').value;
+            const tbody = document.getElementById('students-tbody');
+            tbody.innerHTML = '';
+            for(let roll in studentsDB) {
+                const s = studentsDB[roll];
+                if(filterYear && s.year !== filterYear) continue;
+                if(filterCourse && s.course !== filterCourse) continue;
+                if(filterBranch && s.branch !== filterBranch) continue;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:600; color:var(--primary);">${roll}</td>
+                    <td>${s.name}</td>
+                    <td>${s.year || 'N/A'}</td>
+                    <td>${s.course || 'N/A'}</td>
+                    <td>${s.branch || 'N/A'}</td>
+                    <td style="text-align:right;" class="no-print">
+                        <button onclick="editStudent('${roll}')" class="btn-warning" style="padding:2px 5px; font-size:0.65rem;">Edit</button>
+                        <button onclick="deleteStudent('${roll}')" class="btn-danger" style="padding:2px 5px; font-size:0.65rem;">Del</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+        function exportFilteredStudentsExcel() {
+            let csv = 'RollNo,StudentName,AcademicYear,Course,Branch\n';
+            for(let roll in studentsDB) {
+                const s = studentsDB[roll];
+                csv += `"${roll}","${s.name}","${s.year || ''}","${s.course || ''}","${s.branch || ''}"\n`;
+            }
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.setAttribute('href', url);
+            a.setAttribute('download', 'students_db.csv'); a.click();
+        }
+        function editStudent(roll) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const s = studentsDB[roll];
+            document.getElementById('st-roll').value = roll;
+            document.getElementById('st-name').value = s.name;
+            if(s.year) document.getElementById('st-acad-year').value = s.year;
+            if(s.course) document.getElementById('st-course').value = s.course;
+            if(s.branch) document.getElementById('st-branch').value = s.branch;
+            switchPage('students');
+        }
+        function deleteStudent(roll) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            delete studentsDB[roll];
+            localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+            renderApp();
+        }
+        function promptClearStudentsDB() {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            if(confirm('Clear Students DB?')) { studentsDB = {}; localStorage.removeItem('gist_students_db'); renderApp(); }
+        }
+        function handleExcelFileUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            if(!checkAdminPassword()) { alert('Incorrect action password! Import cancelled.'); e.target.value = ''; return; }
+            const targetYear = document.getElementById('st-acad-year').value;
+            const targetCourse = document.getElementById('st-course').value;
+            const targetBranch = document.getElementById('st-branch').value;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                let count = 0;
+                json.forEach((row, idx) => {
+                    if(row.length >= 2) {
+                        const roll = String(row[0]).trim(); const name = String(row[1]).trim();
+                        if(roll && name && idx > 0 && roll.toLowerCase() !== 'rollno') {
+                            studentsDB[roll] = { ...(studentsDB[roll]||{}), name: name, year: targetYear, course: targetCourse, branch: targetBranch };
+                            count++;
+                        }
+                    }
+                });
+                localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+                triggerAutoBackup(); renderApp();
+                alert(`Imported ${count} students!`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        function addBookRegistry(e) {
+            e.preventDefault();
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const bookData = {
+                bookNo: document.getElementById('reg-book-no').value,
+                range: document.getElementById('reg-serial-range').value,
+                assigned: document.getElementById('reg-assigned').value
+            };
+            booksRegistry.push(bookData);
+            localStorage.setItem('gist_books_reg', JSON.stringify(booksRegistry));
+            triggerAutoBackup(); renderApp();
+            document.getElementById('reg-book-no').value = '';
+            document.getElementById('reg-serial-range').value = '';
+            document.getElementById('reg-assigned').value = '';
+        }
+        function renderBooksTable() {
+            bookPanelSync();
+            const tbody = document.getElementById('books-tbody');
+            tbody.innerHTML = '';
+            booksRegistry.forEach((b, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:600; color:var(--primary);">${b.bookNo}</td>
+                    <td>${b.range}</td>
+                    <td>${b.assigned}</td>
+                    <td style="text-align:right;" class="no-print">
+                        <button onclick="$('bp-book').value='${b.bookNo}';bookRangeFill();printBookPDF()" class="btn-secondary" style="padding:2px 6px; font-size:0.65rem;">📄 PDF</button> <button onclick="deleteBookRegistry(${idx})" class="btn-danger" style="padding:2px 6px; font-size:0.65rem;">Del</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function deleteBookRegistry(index) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            booksRegistry.splice(index, 1);
+            localStorage.setItem('gist_books_reg', JSON.stringify(booksRegistry));
+            renderApp();
+        }
+        function renderDropdownItemsList() {
+            const cat = document.getElementById('dd-category-select').value;
+            const tbody = document.getElementById('dropdown-items-tbody');
+            tbody.innerHTML = '';
+            dropdownsData[cat].forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item}</td>
+                    <td style="text-align:right;" class="no-print">
+                        <button onclick="deleteDropdownItem('${cat}', ${index})" class="btn-danger" style="padding:2px 6px; font-size:0.65rem;">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function addDropdownItemWithAuth() {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const cat = document.getElementById('dd-category-select').value;
+            const val = document.getElementById('dd-new-item').value.trim();
+            if(!val) return;
+            dropdownsData[cat].push(val);
+            localStorage.setItem('gist_dropdowns_cfg', JSON.stringify(dropdownsData));
+            document.getElementById('dd-new-item').value = '';
+            renderDropdownItemsList(); renderApp();
+        }
+        function deleteDropdownItem(cat, index) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            dropdownsData[cat].splice(index, 1);
+            localStorage.setItem('gist_dropdowns_cfg', JSON.stringify(dropdownsData));
+            renderDropdownItemsList(); renderApp();
+        }
+        function handleImageUpload(e, key) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) { collegeCfg[key] = evt.target.result; applyCollegeConfig(); };
+            reader.readAsDataURL(file);
+        }
+        function saveCollegeSettingsWithAuth(e) {
+            e.preventDefault();
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const om = document.getElementById('cfg-otp-mobile').value.replace(/\D/g,'').slice(-10);
+            if(om.length !== 10) { alert('Enter a valid 10-digit official mobile number (used for OTP).'); return; }
+            collegeCfg.otpMobile = om;
+            collegeCfg.name = document.getElementById('cfg-name').value;
+            collegeCfg.address = document.getElementById('cfg-address').value;
+            collegeCfg.phone = document.getElementById('cfg-phone').value;
+            collegeCfg.email = document.getElementById('cfg-email').value;
+            collegeCfg.web = document.getElementById('cfg-web').value;
+            collegeCfg.bankInfo = document.getElementById('cfg-bank-info-txt').value;
+            collegeCfg.watermarkText = document.getElementById('cfg-watermark-txt').value;
+            localStorage.setItem('gist_college_cfg', JSON.stringify(collegeCfg));
+            applyCollegeConfig(); alert('Settings saved!');
+        }
+        function downloadFullSystemBackup() {
+            const masterBackup = {
+                timestamp: new Date().toISOString(),
+                receipts, studentsDB, booksRegistry, dropdownsData, collegeCfg
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(masterBackup));
+            const a = document.createElement('a'); a.setAttribute("href", dataStr);
+            a.setAttribute("download", `gist_system_backup_${todayStr}.json`); a.click();
+        }
+        function restoreSystemBackup(e) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = JSON.parse(evt.target.result);
+                    if(data.receipts) {
+                        receipts = data.receipts; studentsDB = data.studentsDB || {};
+                        booksRegistry = data.booksRegistry || []; dropdownsData = data.dropdownsData || dropdownsData;
+                        collegeCfg = data.collegeCfg || collegeCfg;
+                        localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+                        localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+                        localStorage.setItem('gist_books_reg', JSON.stringify(booksRegistry));
+                        localStorage.setItem('gist_dropdowns_cfg', JSON.stringify(dropdownsData));
+                        localStorage.setItem('gist_college_cfg', JSON.stringify(collegeCfg));
+                        triggerAutoBackup(); renderApp(); alert('System restored!');
+                    }
+                } catch(err) { alert('Invalid backup file!'); }
+            };
+            reader.readAsText(file);
+        }
+        function renderBackupSnapshotsTable() {
+            const tbody = document.getElementById('backup-snapshots-tbody');
+            tbody.innerHTML = '';
+            Object.keys(snapshots).sort().reverse().forEach(dateKey => {
+                const snap = snapshots[dateKey];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:600;">${dateKey}</td>
+                    <td>${snap.receipts ? snap.receipts.length : 0} Receipts</td>
+                    <td style="text-align:right;">
+                        <button onclick="restoreSnapshot('${dateKey}')" class="btn-warning" style="padding:2px 6px; font-size:0.65rem;">Restore</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function restoreSnapshot(dateKey) {
+            if(!checkAdminPassword()) { alert('Incorrect password!'); return; }
+            const snap = snapshots[dateKey];
+            if(snap) {
+                receipts = snap.receipts || receipts;
+                studentsDB = snap.studentsDB || studentsDB;
+                booksRegistry = snap.booksRegistry || booksRegistry;
+                if(snap.collegeCfg) collegeCfg = snap.collegeCfg;
+                localStorage.setItem('gist_e_receipts', JSON.stringify(receipts));
+                localStorage.setItem('gist_students_db', JSON.stringify(studentsDB));
+                localStorage.setItem('gist_books_reg', JSON.stringify(booksRegistry));
+                localStorage.setItem('gist_college_cfg', JSON.stringify(collegeCfg));
+                renderApp(); alert(`Restored snapshot from ${dateKey}`);
+            }
+        }
+        function saveSecurityCredentials(e) {
+            e.preventDefault();
+            if(document.getElementById('sec-curr-pass').value !== authConfig.pass) { alert('Current password incorrect!'); return; }
+            const u = document.getElementById('sec-new-user').value.trim(), p = document.getElementById('sec-new-pass').value;
+            if(!u || p.length < 6 || p === authConfig.actPass) { alert('Enter a User ID and a new login password (min 6 characters) that differs from the action password.'); return; }
+            otpOpen('change', u, p);
+        }
+        function saveActionPassword(e) {
+            e.preventDefault();
+            if(document.getElementById('sec-act-curr').value !== authConfig.actPass) { alert('Current action password incorrect!'); return; }
+            const p = document.getElementById('sec-act-new').value;
+            if(p.length < 6 || p === authConfig.pass) { alert('Use at least 6 characters, different from the login password.'); return; }
+            otpOpen('changeAct', '', p);
+        }
+        // Export ONLY the filtered search records to Excel
+        function exportToDetailedExcel() {
+            let filtered = getFilteredReceipts();
+            if (filtered.length === 0) { alert('No filtered data to export.'); return; }
+            let csv = 'BookNo,SerialNo,Date,RollNo,StudentName,Course,Branch,PaymentMode,Reference,FeeBreakdown,TotalAmount,Status\n';
+            filtered.forEach(r => {
+                const total = r.feeItems.reduce((a,b)=>a+parseFloat(b.amount||0),0);
+                const breakdownStr = r.feeItems.map(i => `${i.purpose} (${i.semester}): ₹${i.amount}`).join(' | ');
+                csv += `"${r.bookNo}","${r.serialNo}","${r.date}","${r.rollNo}","${r.studentName}","${r.course}","${r.branch}","${r.paymentMode}","${r.referenceNo || ''}","${breakdownStr}",${total},"${r.status || 'ACTIVE'}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.setAttribute('href', url);
+            a.setAttribute('download', 'filtered_search_receipts.csv'); a.click();
+        }
+        // ===== v2 features =====
+        function loginHint() { document.getElementById('def-hint').style.display = (authConfig.user==='admin' && authConfig.pass==='admin123') ? 'block' : 'none'; }
+        const $ = id => document.getElementById(id);
+        const fmt = n => parseFloat(n||0).toLocaleString('en-IN', {minimumFractionDigits:2});
+        const sum = r => r.feeItems.reduce((a,i) => a + parseFloat(i.amount||0), 0);
+        const ORIG_TITLE = document.title;
+        function setPage(z) { $('pg-style').textContent = z ? '@page{size:A4;margin:0}' : ''; }
+        function printHTML(h, z) { $('print-batch').innerHTML = h; setPage(!!z); document.body.classList.add('pb'); setTimeout(() => window.print(), 150); }
+        function printReceiptView() { setPage(true); document.body.classList.add('rv'); document.title = 'Receipt'; setTimeout(() => window.print(), 100); }
+        window.addEventListener('afterprint', () => { document.body.classList.remove('pb', 'rv'); setPage(false); document.title = ORIG_TITLE; });
+        function inWords(v) {
+            const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'], b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+            const t = x => x < 20 ? a[x] : b[Math.floor(x/10)] + (x%10 ? ' ' + a[x%10] : '');
+            const h = x => (x > 99 ? a[Math.floor(x/100)] + ' Hundred' + (x%100 ? ' ' : '') : '') + (x%100 ? t(x%100) : '');
+            let n = Math.floor(v + 1e-9), p = Math.round((v - n) * 100), o = [];
+            const c = Math.floor(n/1e7), l = Math.floor(n/1e5)%100, k = Math.floor(n/1e3)%100, r = n%1000;
+            if(c) o.push(h(c)+' Crore'); if(l) o.push(t(l)+' Lakh'); if(k) o.push(t(k)+' Thousand'); if(r) o.push(h(r));
+            return 'Rupees ' + (o.join(' ') || 'Zero') + (p ? ' and ' + t(p) + ' Paise' : '') + ' Only';
+        }
+        function pHead(t) { const c = collegeCfg; return `<div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #1e3a8a;padding-bottom:8px;margin-bottom:10px">${c.logoImage?`<img src="${c.logoImage}" style="height:52px">`:''}<div><div style="font-size:17px;font-weight:800;color:#1e3a8a;text-transform:uppercase">${c.name}</div><div style="font-size:11px;color:#475569">${c.address} | ${c.phone} | ${c.email}</div></div></div><h2 style="text-align:center;font-size:15px;margin-bottom:8px">${t}</h2>`; }
+        // --- Book PDF ---
+        function bookPanelSync() { const sel = $('bp-book'), cur = sel.value; sel.innerHTML = booksRegistry.map(b => `<option>${b.bookNo}</option>`).join(''); if(cur) sel.value = cur; if(!$('bp-from').value) bookRangeFill(); }
+        function bookRangeFill() { const b = booksRegistry.find(x => x.bookNo === $('bp-book').value), n = b ? (b.range.match(/\d+/g)||[]) : []; $('bp-from').value = n[0]||1; $('bp-to').value = n[1]||1000; }
+        function rcptHTML(r) {
+            const x = r.status === 'CANCELLED', c = collegeCfg, td = 'border-bottom:1px solid #ddd;padding:2px';
+            return `<div class="pb-rcpt"><div style="display:flex;align-items:center;gap:10px;background:#eef3ff;border-bottom:3px solid #1e3a8a;padding:8px 10px;margin:-10px -10px 8px">${c.logoImage?`<img src="${c.logoImage}" style="height:40px">`:''}<div style="flex:1;text-align:center"><b style="color:#1e3a8a;text-transform:uppercase">${c.name}</b><div style="font-size:10px">${c.address} | ${c.phone}</div></div><div style="text-align:right;font-size:11px"><b>Book ${r.bookNo}</b><br>Serial #${r.serialNo}</div></div>
+            <div style="font-size:12px;display:flex;justify-content:space-between"><span><b>${r.studentName}</b> (Roll: ${r.rollNo})</span><span>${r.course} - ${r.branch}</span></div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px;margin:5px 0;min-width:0">${r.feeItems.map(i => `<tr><td style="${td}">${i.purpose}</td><td style="${td}">${i.semester}</td><td style="${td};text-align:right">₹${fmt(i.amount)}</td></tr>`).join('')}</table>
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>${r.paymentMode}${r.referenceNo?' | Ref: '+r.referenceNo:''} | <b style="color:${x?'#dc2626':'#059669'}">${r.status||'ACTIVE'}</b></span><b style="background:#1e3a8a;color:#fff;padding:3px 10px;border-radius:6px">Total: ₹${fmt(sum(r))}</b></div><div style="font-size:10px;font-style:italic;color:#475569;text-align:right;margin-top:3px">${inWords(sum(r))}</div>${x&&r.cancelReason?`<div style="font-size:10px;color:#b91c1c">Cancelled: ${r.cancelReason}</div>`:''}<div style="border-top:1px dashed #94a3b8;margin-top:6px;padding-top:4px;text-align:center;font-size:10px;color:#334155">Date: ${r.date} | Time: ${r.time||'—'}</div></div>`;
+        }
+        function printBookPDF() {
+            const bk = $('bp-book').value, f = +$('bp-from').value, t = +$('bp-to').value;
+            if(!bk || !f || !t || f > t) { alert('Select a book and a valid serial range.'); return; }
+            const list = receipts.filter(r => r.bookNo === bk && +r.serialNo >= f && +r.serialNo <= t).sort((a,b) => a.serialNo - b.serialNo);
+            if(!list.length) { alert('No receipts found in this book for that serial range.'); return; }
+            const have = new Set(list.map(r => +r.serialNo)); let miss = 0; for(let i=f; i<=t; i++) if(!have.has(i)) miss++;
+            const pages = []; for(let i=0; i<list.length; i+=2) pages.push(`<div class="pb-page">${list.slice(i,i+2).map(rcptHTML).join('')}</div>`);
+            printHTML(pages.join(''), true);
+        }
+        // --- Student history ---
+        let shRoll = '';
+        function shStats(roll) { const rs = receipts.filter(r => r.rollNo === roll), paid = rs.filter(r => r.status !== 'CANCELLED').reduce((a,r) => a + sum(r), 0), s = studentsDB[roll] || {name: (rs[0]||{}).studentName || roll}; return {rs, paid, s, due: parseFloat(s.totalFee)||0}; }
+        const histHead = '<tr><th>Date</th><th>Book / Serial</th><th>Fee Heads</th><th>Mode</th><th style="text-align:right">Amount</th><th>Status</th></tr>';
+        function histRows(rs) { return rs.slice().sort((a,b) => a.date < b.date ? -1 : 1).map(r => { const x = r.status === 'CANCELLED'; return `<tr style="${x?'text-decoration:line-through;color:#9ca3af':''}"><td>${r.date}</td><td>${r.bookNo} / #${r.serialNo}</td><td>${r.feeItems.map(i => `${i.purpose} (${i.semester}) ₹${fmt(i.amount)}`).join('<br>')}</td><td>${r.paymentMode}</td><td style="text-align:right">₹${fmt(sum(r))}</td><td>${r.status||'ACTIVE'}</td></tr>`; }).join(''); }
+        function shFind() {
+            const q = $('sh-q').value.trim().toLowerCase(); if(!q) return;
+            let m = Object.keys(studentsDB).filter(r => r.toLowerCase() === q);
+            if(!m.length) m = Object.keys(studentsDB).filter(r => r.toLowerCase().includes(q) || studentsDB[r].name.toLowerCase().includes(q));
+            if(!m.length) { const rr = receipts.find(r => r.rollNo.toLowerCase() === q); if(rr) m = [rr.rollNo]; }
+            if(m.length === 1) return shShow(m[0]);
+            $('sh-out').innerHTML = m.length ? '<p style="margin-top:10px;font-size:.78rem">Multiple matches — pick one:</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' + m.map(r => `<button class="btn-secondary" onclick="shShow('${r}')">${r} – ${studentsDB[r].name}</button>`).join('') + '</div>' : '<p style="margin-top:10px;font-size:.8rem;color:var(--danger)">No student found.</p>';
+        }
+        function shShow(roll) {
+            shRoll = roll; const {rs, paid, s, due} = shStats(roll), bal = due - paid;
+            $('sh-out').innerHTML = `<div class="sh-head"><b>${s.name} · Roll ${roll}</b><span>${[s.year,s.course,s.branch].filter(Boolean).join(' · ')}</span></div>
+            <div class="stats-grid"><div class="stat-card"><p>Receipts</p><h3>${rs.length}</h3></div><div class="stat-card"><p>Total Paid</p><h3 style="color:var(--success)">₹${fmt(paid)}</h3></div><div class="stat-card"><p>Total Fee Payable (₹)</p><input type="number" id="sh-fee" min="0" value="${due||''}" placeholder="Enter total" onchange="shSaveFee()" ${studentsDB[roll]?'':'disabled'}></div><div class="stat-card"><p>${bal<0?'Excess Paid':'Balance Due'}</p><h3 style="color:${bal>0?'var(--danger)':'var(--success)'}">${due?'₹'+fmt(Math.abs(bal)):'—'}</h3></div></div>
+            <div class="table-container" style="max-height:320px"><table><thead>${histHead}</thead><tbody>${histRows(rs) || '<tr><td colspan="6">No receipts yet.</td></tr>'}</tbody></table></div>
+            <button class="btn-primary" style="width:auto;margin-top:10px" onclick="shPrint()">📄 Download / Print PDF</button>`;
+        }
+        function shSaveFee() { if(!studentsDB[shRoll]) return; if(!checkAdminPassword()) { alert('Incorrect action password!'); shShow(shRoll); return; } studentsDB[shRoll].totalFee = parseFloat($('sh-fee').value)||0; localStorage.setItem('gist_students_db', JSON.stringify(studentsDB)); triggerAutoBackup(); shShow(shRoll); }
+        function shPrint() {
+            const {rs, paid, s, due} = shStats(shRoll);
+            printHTML(pHead('STUDENT PAYMENT HISTORY') + `<div style="font-size:13px;margin-bottom:8px"><b>${s.name}</b> | Roll: ${shRoll}<br>${[s.year,s.course,s.branch].filter(Boolean).join(' | ')}</div><table><thead>${histHead}</thead><tbody>${histRows(rs)}</tbody></table><div style="text-align:right;margin-top:10px;font-size:13px">Receipts: <b>${rs.length}</b> | Total Paid: <b>₹${fmt(paid)}</b>${due ? ` | Fee Payable: <b>₹${fmt(due)}</b> | ${due>=paid?'Balance Due':'Excess Paid'}: <b>₹${fmt(Math.abs(due-paid))}</b>` : ''}</div><div style="margin-top:30px;text-align:right;font-size:11px">Authorized Signatory<br><br>__________________</div><div style="font-size:10px;color:#64748b;margin-top:6px">Generated on ${todayStr}. Cancelled receipts are excluded from totals.</div>`);
+        }
+        // --- Daily email backup (simulated) ---
+        let mailLog = JSON.parse(localStorage.getItem('gist_mail_log') || '[]');
+        function mlog(m) { mailLog.push(`[${new Date().toLocaleString('en-IN',{hour12:false})}] ${m}`); mailLog = mailLog.slice(-40); localStorage.setItem('gist_mail_log', JSON.stringify(mailLog)); renderMailLog(); }
+        function renderMailLog() { const l = $('bk-log'); l.innerText = mailLog.join('\n') || 'No backup runs yet.'; l.scrollTop = l.scrollHeight; $('bk-to').innerText = collegeCfg.email; }
+        async function simulateDailyBackup() {
+            const btn = $('bk-btn'), wait = ms => new Promise(r => setTimeout(r, ms)); btn.disabled = true;
+            try {
+                mlog('▶ Daily backup job started'); await wait(500);
+                const json = JSON.stringify({timestamp: new Date().toISOString(), receipts, studentsDB, booksRegistry, dropdownsData, collegeCfg});
+                let h = 'unavailable'; try { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json)); h = [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join(''); } catch(e) {}
+                mlog(`Snapshot built: ${receipts.length} receipts, ${Object.keys(studentsDB).length} students, ${(new Blob([json]).size/1024).toFixed(1)} KB`); await wait(600);
+                mlog('SHA-256 integrity checksum: ' + h.slice(0,40) + '…'); await wait(600);
+                mlog('Encrypting attachment (AES-256) [simulated]'); await wait(700);
+                mlog('Opening TLS connection to mail server [simulated]'); await wait(700);
+                mlog(`Sending backup_${todayStr}.json → ${collegeCfg.email} [simulated]`); await wait(900);
+                mlog('✅ Delivered & off-site copy confirmed [simulated]');
+            } finally { btn.disabled = false; }
+        }
+        // --- OTP security ---
+        let otp = {};
+        const mobileOf = () => (collegeCfg.otpMobile || collegeCfg.phone || '').replace(/\D/g,'').slice(-10);
+        const maskM = m => '+91 ••••••' + m.slice(-4);
+        function updateSecHint() { const m = mobileOf(); $('sec-hint').innerHTML = m.length === 10 ? `🔒 Changes need a 6-digit OTP sent to <b>${maskM(m)}</b> (official college mobile).` : '⚠️ Register a valid official mobile number in College Settings to enable OTP.'; }
+        function smsToast(m, code) { const t = $('sms-toast'); t.innerHTML = `<b>📱 SMS to ${maskM(m)}</b><br>Your GIST portal OTP is <span class="sms-code">${code}</span>. Valid for 5 minutes. Do not share it.<small>Demo mode: simulated SMS shown on screen. A real SMS needs an SMS gateway on a server.</small>`; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 40000); }
+        function otpOpen(mode, nu, np) {
+            const m = mobileOf(); if(m.length !== 10) { alert('No valid official mobile number is registered. Add it in College Settings first.'); return; }
+            otp = {mode, nu, np}; const rec = mode.startsWith('recover');
+            $('otp-title').innerText = rec ? 'Recover Account' : 'Verify Your Identity';
+            $('otp-sub').innerText = rec ? 'Confirm the registered official college mobile number to receive an OTP.' : 'Sending a 6-digit OTP to ' + maskM(m);
+            ['s1','s2','s3'].forEach(k => $('otp-'+k).style.display = 'none'); $('otp-modal').classList.add('show');
+            if(rec) { $('otp-s1').style.display = 'block'; $('otp-mobile').value = ''; } else otpSend();
+        }
+        function otpStart() { if($('otp-mobile').value.replace(/\D/g,'').slice(-10) !== mobileOf()) { alert('This number does not match the registered college mobile.'); return; } otpSend(); }
+        function otpSend() {
+            const m = mobileOf(); otp.code = String(100000 + crypto.getRandomValues(new Uint32Array(1))[0] % 900000); otp.exp = Date.now() + 3e5; otp.next = Date.now() + 3e4; otp.tries = 0;
+            smsToast(m, otp.code); $('otp-s1').style.display = 'none'; $('otp-s2').style.display = 'block'; $('otp-code').value = ''; $('otp-err').innerText = ''; $('otp-sub').innerText = 'OTP sent to ' + maskM(m);
+            clearInterval(otp.iv); otp.iv = setInterval(otpTick, 1000); otpTick();
+        }
+        function otpTick() { const l = Math.max(0, Math.ceil((otp.exp-Date.now())/1000)), w = Math.max(0, Math.ceil((otp.next-Date.now())/1000)); $('otp-info').innerText = l ? `Expires in ${Math.floor(l/60)}:${String(l%60).padStart(2,'0')}` : 'OTP expired'; $('otp-resend').disabled = w > 0; $('otp-resend').innerText = w ? `Resend in ${w}s` : 'Resend OTP'; }
+        function otpVerify() {
+            const e = $('otp-err'); if(!otp.code || Date.now() > otp.exp) { e.innerText = 'OTP expired or locked. Please resend.'; return; }
+            otp.tries++; if($('otp-code').value.trim() !== otp.code) { e.innerText = `Incorrect OTP. ${3-otp.tries} attempt(s) left.`; if(otp.tries >= 3) otp.code = null; return; }
+            otp.code = null; clearInterval(otp.iv);
+            if(otp.mode === 'change') otpApply(otp.nu, otp.np); else if(otp.mode === 'changeAct') otpApplyAct(otp.np); else { $('otp-nu').style.display = otp.mode === 'recoverAct' ? 'none' : 'block'; $('otp-s2').style.display = 'none'; $('otp-s3').style.display = 'block'; $('otp-sub').innerText = 'OTP verified. Set your new credentials.'; }
+        }
+        function otpApply(u, p) { authConfig.user = u; authConfig.pass = p; localStorage.setItem('gist_auth_cfg', JSON.stringify(authConfig)); loginHint(); otpClose(); ['sec-curr-pass','sec-new-user','sec-new-pass'].forEach(i => $(i).value = ''); alert('✅ Credentials updated successfully.'); }
+        function otpFinish() {
+            const u = $('otp-nu').value.trim(), p = $('otp-np').value;
+            if(otp.mode === 'recoverAct') { if(p.length < 6 || p === authConfig.pass) { alert('Use at least 6 characters, different from the login password.'); return; } otpApplyAct(p); return; }
+            if(!u || p.length < 6 || p === authConfig.actPass) { alert('Enter a User ID and a login password (min 6 characters) that differs from the action password.'); return; }
+            otpApply(u, p);
+        }
+        function otpApplyAct(p) { authConfig.actPass = p; localStorage.setItem('gist_auth_cfg', JSON.stringify(authConfig)); otpClose(); ['sec-act-curr','sec-act-new'].forEach(i => $(i).value = ''); alert('✅ Action password updated successfully.'); }
+        function otpClose() { clearInterval(otp.iv); $('otp-modal').classList.remove('show'); }
+        document.getElementById('cfg-otp-mobile').value = collegeCfg.otpMobile || mobileOf();
+        document.getElementById('cfg-name').value = collegeCfg.name;
+        document.getElementById('cfg-address').value = collegeCfg.address;
+        document.getElementById('cfg-phone').value = collegeCfg.phone;
+        document.getElementById('cfg-email').value = collegeCfg.email;
+        document.getElementById('cfg-web').value = collegeCfg.web;
+        document.getElementById('cfg-bank-info-txt').value = collegeCfg.bankInfo;
+        document.getElementById('cfg-watermark-txt').value = collegeCfg.watermarkText || 'GIST RAYAGADA';
+        renderDropdownItemsList();
+        renderApp();
+    </script>
+<style id="pg-style"></style>
+</body>
+</html>
